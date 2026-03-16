@@ -1,0 +1,11 @@
+# 1. Installer
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Exécuter le notebook
+jupyter notebook research/notebooks/rl_dynamic_pricing_complete_final.ipynb
+# → Cell → Run All (1-3h)
+
+# 3. Lancer l'app de démo
+streamlit run app.py
