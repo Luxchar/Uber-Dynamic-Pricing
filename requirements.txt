@@ -39,4 +39,6 @@ ipywidgets>=8.1.0
 
 # Optional but recommended
 tensorboard>=2.13.0
-torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+--extra-index-url https://download.pytorch.org/whl/cu118
+torchvision
+torchaudio
