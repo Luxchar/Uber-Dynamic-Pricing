@@ -301,4 +301,4 @@ research/results/models/
 
 ---
 
-**⭐ Le projet est complet, documenté, et prêt pour la soutenance ! ⭐**
+**⭐ Merci d'avoir lu ! ⭐**
