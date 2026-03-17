@@ -9,6 +9,8 @@ import numpy as np
 import time
 from typing import Dict, Any, Callable, Optional
 from pathlib import Path
+import torch
+import torch.nn as nn
 
 
 def evaluate_policy_common(
@@ -279,13 +281,108 @@ class GreedyRegressorBaseline(BaselinePolicy):
         return int(np.argmax(predictions))
 
 
-def create_baseline_policies(price_multipliers: np.ndarray, env=None):
+class _RewardMLP(nn.Module):
+    def __init__(self, input_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class NeuralBaseline(BaselinePolicy):
+    """
+    Baseline 4: Politique neuronale (PyTorch)
+
+    Modèle supervisé simple qui prédit le reward attendu pour (state, action),
+    puis choisit l'action gloutonne. Inference sur GPU si disponible et activé.
+    """
+
+    def __init__(self, price_multipliers: np.ndarray, env, n_samples: int = 7000, device: str = "cpu"):
+        super().__init__("Neural Baseline (PyTorch)")
+        self.price_multipliers = price_multipliers
+        self.n_actions = len(price_multipliers)
+        requested_device = "cuda" if device == "cuda" and torch.cuda.is_available() else "cpu"
+        self.device = torch.device(requested_device)
+        self.model = _RewardMLP(input_dim=11 + self.n_actions).to(self.device)
+        self._train_model(env, n_samples)
+
+    def _train_model(self, env, n_samples: int):
+        x_samples = []
+        y_samples = []
+
+        for _ in range(n_samples):
+            obs, _ = env.reset()
+            action = np.random.randint(0, self.n_actions)
+            _, reward, _, _, _ = env.step(action)
+
+            action_onehot = np.zeros(self.n_actions, dtype=np.float32)
+            action_onehot[action] = 1.0
+            features = np.concatenate([obs.astype(np.float32), action_onehot])
+
+            x_samples.append(features)
+            y_samples.append([float(reward)])
+
+        x_train = torch.tensor(np.array(x_samples), dtype=torch.float32, device=self.device)
+        y_train = torch.tensor(np.array(y_samples), dtype=torch.float32, device=self.device)
+
+        criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        batch_size = 256
+        epochs = 8
+
+        self.model.train()
+        n = x_train.size(0)
+        for _ in range(epochs):
+            indices = torch.randperm(n, device=self.device)
+            for start in range(0, n, batch_size):
+                batch_idx = indices[start:start + batch_size]
+                xb = x_train[batch_idx]
+                yb = y_train[batch_idx]
+
+                optimizer.zero_grad()
+                preds = self.model(xb)
+                loss = criterion(preds, yb)
+                loss.backward()
+                optimizer.step()
+
+        self.model.eval()
+        print(f"✅ Neural baseline entraînée sur {n_samples} échantillons (device={self.device.type})")
+
+    def __call__(self, obs: np.ndarray) -> int:
+        obs_tensor = torch.tensor(obs, dtype=torch.float32, device=self.device)
+        obs_repeated = obs_tensor.unsqueeze(0).repeat(self.n_actions, 1)
+        action_onehot = torch.eye(self.n_actions, dtype=torch.float32, device=self.device)
+        features = torch.cat([obs_repeated, action_onehot], dim=1)
+
+        with torch.no_grad():
+            preds = self.model(features).squeeze(-1)
+
+        return int(torch.argmax(preds).item())
+
+
+def create_baseline_policies(
+    price_multipliers: np.ndarray,
+    env=None,
+    use_gpu_baseline: bool = False,
+    baseline_device: str = "cpu",
+    include_greedy_regressor: bool = True
+):
     """
     Créer toutes les baselines
     
     Args:
         price_multipliers: Array des multiplicateurs
-        env: Environnement (nécessaire pour GreedyRegressor)
+        env: Environnement (nécessaire pour baselines supervisées)
+        use_gpu_baseline: Ajouter une baseline PyTorch pouvant utiliser le GPU
+        baseline_device: Device PyTorch visé ("cpu" ou "cuda")
+        include_greedy_regressor: Inclure la baseline RF (plus lente)
         
     Returns:
         Dict de baselines
@@ -296,6 +393,14 @@ def create_baseline_policies(price_multipliers: np.ndarray, env=None):
     }
     
     if env is not None:
-        baselines['greedy_regressor'] = GreedyRegressorBaseline(price_multipliers, env, n_samples=5000)
+        if include_greedy_regressor:
+            baselines['greedy_regressor'] = GreedyRegressorBaseline(price_multipliers, env, n_samples=5000)
+        if use_gpu_baseline:
+            baselines['neural_torch'] = NeuralBaseline(
+                price_multipliers=price_multipliers,
+                env=env,
+                n_samples=7000,
+                device=baseline_device
+            )
     
     return baselines
