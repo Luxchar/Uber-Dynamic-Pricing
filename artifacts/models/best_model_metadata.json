@@ -1,0 +1,33 @@
+{
+  "model_name": "Recurrent PPO",
+  "model_family": "Policy-Based Advanced",
+  "model_class": "RecurrentPPO",
+  "test_mean_reward": 21837.688317066364,
+  "test_mean_revenue": 21837.688317066364,
+  "test_acceptance_rate": 79.19999999999999,
+  "timestamp": "2026-03-17T08:15:31.624556",
+  "features_used": [
+    "Number_of_Riders",
+    "Number_of_Drivers",
+    "Ratio_Riders_Drivers",
+    "Expected_Ride_Duration",
+    "Average_Ratings",
+    "Number_of_Past_Rides",
+    "Location_Category_encoded",
+    "Customer_Loyalty_Status_encoded",
+    "Time_of_Booking_encoded",
+    "Vehicle_Type_encoded",
+    "Historical_Cost_of_Ride"
+  ],
+  "price_multipliers": [
+    0.8,
+    0.9,
+    1.0,
+    1.1,
+    1.2,
+    1.3,
+    1.4,
+    1.5
+  ],
+  "episode_length": 50
+}
