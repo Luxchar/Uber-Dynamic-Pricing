@@ -12,11 +12,11 @@ import pandas as pd
 from pathlib import Path
 
 SEED = 42
-N_SYNTHETIC = 1_000_000
+N_SYNTHETIC = 20_000
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_CSV = PROJECT_ROOT / "data" / "raw" / "dynamic_pricing.csv"
-OUT_CSV = PROJECT_ROOT / "data" / "raw" / "dynamic_pricing_1M.csv"
+OUT_CSV = PROJECT_ROOT / "data" / "raw" / "dynamic_pricing_synth.csv"
 
 rng = np.random.default_rng(SEED)
 
